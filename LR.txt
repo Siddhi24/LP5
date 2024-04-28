@@ -1,0 +1,2 @@
+correlation_matrix=df.corr().round(2)
+sns.heatmap(data=correlation_matrix,annot=True)
