@@ -1,0 +1,80 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <cuda_runtime.h>
+
+#define N 1000000  // Vector size
+
+_global_ void vectorAdd(int *a, int *b, int *c, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+int main() {
+    int *a, *b, *c;         // Host vectors
+    int *d_a, *d_b, *d_c;   // Device vectors
+    int size = N * sizeof(int);
+
+    // Allocate memory for host vectors
+    a = (int*)malloc(size);
+    b = (int*)malloc(size);
+    c = (int*)malloc(size);
+
+    // Initialize host vectors
+    for (int i = 0; i < N; i++) {
+        a[i] = i;
+        b[i] = 2 * i;
+    }
+
+    // Allocate memory for device vectors
+    cudaMalloc(&d_a, size);
+    cudaMalloc(&d_b, size);
+    cudaMalloc(&d_c, size);
+
+    // Copy host vectors to device
+    cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b, b, size, cudaMemcpyHostToDevice);
+
+    // Vector addition
+    int blockSize = 256;
+    int numBlocks = (N + blockSize - 1) / blockSize;
+    cudaEvent_t start, stop;
+    float elapsedTime;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start, 0);
+
+    vectorAdd<<<numBlocks, blockSize>>>(d_a, d_b, d_c, N);
+    cudaDeviceSynchronize();  // Wait for the GPU to finish
+
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsedTime, start, stop);
+
+    // Copy result back to host
+    cudaMemcpy(c, d_c, size, cudaMemcpyDeviceToHost);
+
+    // Display result
+    printf("Vector Addition Result:\n");
+    for (int i = 0; i < 10; i++) {
+        printf("%d ", c[i]);
+    }
+    printf("\n");
+
+    // Display elapsed time
+    printf("\nElapsed Time: %f ms\n", elapsedTime);
+
+    // Free device memory
+    cudaFree(d_a);
+    cudaFree(d_b);
+    cudaFree(d_c);
+
+    // Free host memory
+    free(a);
+    free(b);
+    free(c);
+
+    return 0;
+}
